@@ -14,6 +14,7 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { supabase } from '../utils/supabase'; // Assuming you have set up Supabase in utils
 import { useFavorites } from '../context/FavoritesContext';
+import { getCurrentUserId } from '../auth'; // Ensure the path is correct
 
 const { width } = Dimensions.get('window');
 
@@ -84,30 +85,40 @@ export default function HomePage() {
     setSelectedItem(null);
   };
 
-  const handlePurchase = async () => {
+  const handleAddToCart = async (foodItemId, quantity, price) => {
     try {
-      const totalPrice = quantity * selectedItem.price;
-
-      // Store in table (replace `orders` with your table name)
-      const { error } = await supabase.from('orders').insert([
+      const userId = await getCurrentUserId(); // Fetch logged-in user ID
+      if (!userId) {
+        alert("Please log in to add items to the cart.");
+        return;
+      }
+  
+      const totalPrice = quantity * price;
+  
+      // Insert into `add_to_cart` table
+      const { error } = await supabase.from('add_to_cart').insert([
         {
-          item_name: selectedItem.name,
-          item_price: selectedItem.price,
+          user_id: userId, // Link to the logged-in user
+          food_item_id: foodItemId,
           quantity: quantity,
           total_price: totalPrice,
-          created_at: new Date(),
         },
       ]);
-
-      if (error) throw error;
-
-      console.log('Order placed successfully');
-      closeModal(); // Close modal after successful purchase
+  
+      if (error) {
+        console.error("Error adding to cart:", error.message);
+        alert("Failed to add item to the cart.");
+        return;
+      }
+  
+      alert("Item added to cart successfully!");
     } catch (err) {
-      console.error('Error placing order:', err.message);
+      console.error("Unexpected error:", err.message);
+      alert("An unexpected error occurred while adding to the cart.");
     }
   };
-
+  
+  
   // Render category item
   const renderCategoryItem = ({ item }) => (
     <TouchableOpacity
@@ -214,8 +225,8 @@ export default function HomePage() {
                 <TouchableOpacity style={styles.goBackButton} onPress={closeModal}>
                   <Text style={styles.buttonText}>Go Back</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.purchaseButton} onPress={handlePurchase}>
-                  <Text style={styles.buttonText}>Purchase</Text>
+                <TouchableOpacity style={styles.purchaseButton} onPress={() => handleAddToCart(selectedItem.id, quantity, selectedItem.price)}>
+                  <Text style={styles.buttonText}>Add to Cart</Text>
                 </TouchableOpacity>
               </View>
             </View>

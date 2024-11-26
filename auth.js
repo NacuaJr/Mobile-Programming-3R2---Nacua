@@ -44,3 +44,12 @@ export const loginUser = async (email, password) => {
   }
 };
 
+export const getCurrentUserId = async () => {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    console.error("Error fetching user:", error.message);
+    return null;
+  }
+  return data.user?.id;
+};
+

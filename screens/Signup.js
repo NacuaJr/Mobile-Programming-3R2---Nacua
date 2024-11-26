@@ -1,7 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { View, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity } from "react-native";
-import { registerUser } from '../auth.js';
+import { View, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { supabase } from '../utils/supabase';
 
 export default function RegisterPage({ navigation }) {
     const [firstName, setFirstName] = useState('');
@@ -13,15 +13,69 @@ export default function RegisterPage({ navigation }) {
 
     const toSignIn = () => {
         navigation.navigate('LoginScreen');
-    }
+    };
 
-    const handleRegister = () => {
-        registerUser(firstName, lastName, email, password, confirmPassword);
-    }
+    const handleRegister = async () => {
+        if (password !== confirmPassword) {
+            Alert.alert("Error", "Passwords do not match!");
+            return;
+        }
+
+        try {
+            // Step 1: Register the user with Supabase Auth
+            const { data, error } = await supabase.auth.signUp({
+                email: email,
+                password: password,
+                options: {
+                    data: {
+                        first_name: firstName,
+                        last_name: lastName,
+                    },
+                },
+            });
+
+            if (error) {
+                console.error("Auth Error:", error.message);
+                Alert.alert("Registration failed", error.message);
+                return;
+            }
+
+            const userId = data.user?.id;
+            if (!userId) {
+                Alert.alert("Error", "Failed to retrieve user ID after registration.");
+                return;
+            }
+
+            // Step 2: Insert user data into the custom `users` table
+            const { error: dbError } = await supabase.from('users').insert([
+                {
+                    id: userId,
+                    email: email,
+                    first_name: firstName,
+                    last_name: lastName,
+                },
+            ]);
+
+            if (dbError) {
+                console.error("Database Error:", dbError.message);
+                Alert.alert("Registration failed", "Failed to save user details.");
+                return;
+            }
+
+            Alert.alert(
+                "Registration Successful",
+                "Please check your email to verify your account."
+            );
+            navigation.navigate('LoginScreen'); // Redirect to login after success
+        } catch (err) {
+            console.error("Unexpected Error:", err.message);
+            Alert.alert("Registration failed", "An unexpected error occurred.");
+        }
+    };
 
     const toTerms = () => {
-        navigation.navigate('TermsOfService')
-    }
+        navigation.navigate('TermsOfService');
+    };
 
     return (
         <>
@@ -29,46 +83,49 @@ export default function RegisterPage({ navigation }) {
                 <StatusBar style="light" />
                 <Text style={styles.registerText}>Register</Text>
 
-                <TextInput 
+                <TextInput
                     style={styles.firstName}
-                    placeholder='First name'
-                    placeholderTextColor={'#fff'}
+                    placeholder="First name"
+                    placeholderTextColor="#fff"
                     value={firstName}
                     onChangeText={setFirstName}
                 />
-                <TextInput 
+                <TextInput
                     style={styles.lastName}
-                    placeholder='Last name'
-                    placeholderTextColor={'#fff'}
+                    placeholder="Last name"
+                    placeholderTextColor="#fff"
                     value={lastName}
                     onChangeText={setLastName}
                 />
-                <TextInput 
+                <TextInput
                     style={styles.userEmail}
-                    placeholder='Email address'
-                    placeholderTextColor={'#fff'}
+                    placeholder="Email address"
+                    placeholderTextColor="#fff"
                     value={email}
                     onChangeText={setEmail}
                 />
-                <TextInput 
+                <TextInput
                     style={styles.password}
-                    placeholder='Enter password'
-                    placeholderTextColor={'#fff'}
+                    placeholder="Enter password"
+                    placeholderTextColor="#fff"
                     secureTextEntry={true}
                     value={password}
                     onChangeText={setPassword}
                 />
-                <TextInput 
+                <TextInput
                     style={styles.rePassword}
-                    placeholder='Re-enter password'
-                    placeholderTextColor={'#fff'}
+                    placeholder="Re-enter password"
+                    placeholderTextColor="#fff"
                     secureTextEntry={true}
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
                 />
 
-                <TouchableOpacity 
-                    style={[styles.registerButton, { backgroundColor: isLoginButtonPressed ? '#35343B' : '#20AB7D' }]}
+                <TouchableOpacity
+                    style={[
+                        styles.registerButton,
+                        { backgroundColor: isLoginButtonPressed ? '#35343B' : '#20AB7D' },
+                    ]}
                     onPressIn={() => setIsLoginButtonPressed(true)}
                     onPressOut={() => setIsLoginButtonPressed(false)}
                     onPress={handleRegister} // Register the user on button press
@@ -95,6 +152,7 @@ export default function RegisterPage({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+    // Same styles as before
     container: {
         flex: 1,
         backgroundColor: '#25242B',
@@ -104,7 +162,7 @@ const styles = StyleSheet.create({
         fontSize: 40,
         alignSelf: 'center',
         marginTop: '38%',
-        fontWeight: 'bold'
+        fontWeight: 'bold',
     },
     firstName: {
         backgroundColor: '#17171B',
@@ -175,20 +233,20 @@ const styles = StyleSheet.create({
         marginTop: '7%',
     },
     isMemberText: {
-        color: '#fff'
+        color: '#fff',
     },
     signInText: {
-        color: '#20AB7D'
+        color: '#20AB7D',
     },
     TOS: {
         alignSelf: 'center',
         marginTop: '23.7%',
     },
     agreeText: {
-        color: '#fff'
+        color: '#fff',
     },
     terms: {
         color: '#20AB7D',
         textAlign: 'center',
-    }
+    },
 });
