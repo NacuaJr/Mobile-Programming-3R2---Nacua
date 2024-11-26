@@ -14,8 +14,8 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { supabase } from '../utils/supabase'; // Assuming you have set up Supabase in utils
 import { useFavorites } from '../context/FavoritesContext';
-import { getCurrentUserId } from '../auth'; // Ensure the path is correct
-
+import { getCurrentUserId } from '../api/apicalls'; // Ensure the path is correct
+import { useCart } from '../context/CartContext';
 const { width } = Dimensions.get('window');
 
 export default function HomePage() {
@@ -30,6 +30,8 @@ export default function HomePage() {
   const [selectedItem, setSelectedItem] = useState(null); // For modal
   const [quantity, setQuantity] = useState(1);
   const [isModalVisible, setIsModalVisible] = useState(false);
+
+  const { fetchCartItems } = useCart(); // Use the cart context
 
   // Fetch categories and food items when the component mounts
   useEffect(() => {
@@ -85,38 +87,41 @@ export default function HomePage() {
     setSelectedItem(null);
   };
 
+  
   const handleAddToCart = async (foodItemId, quantity, price) => {
     try {
-      const userId = await getCurrentUserId(); // Fetch logged-in user ID
+      const userId = await getCurrentUserId();
       if (!userId) {
-        alert("Please log in to add items to the cart.");
+        alert('Please log in to add items to the cart.');
         return;
       }
-  
+
       const totalPrice = quantity * price;
-  
-      // Insert into `add_to_cart` table
+
       const { error } = await supabase.from('add_to_cart').insert([
         {
-          user_id: userId, // Link to the logged-in user
+          user_id: userId,
           food_item_id: foodItemId,
           quantity: quantity,
+          item_price: price,
           total_price: totalPrice,
         },
       ]);
-  
+
       if (error) {
-        console.error("Error adding to cart:", error.message);
-        alert("Failed to add item to the cart.");
+        console.error('Error adding to cart:', error.message);
+        alert('Failed to add item to the cart.');
         return;
       }
-  
-      alert("Item added to cart successfully!");
+
+      alert('Item added to cart successfully!');
+      fetchCartItems(); // Trigger a fetch to update the context
     } catch (err) {
-      console.error("Unexpected error:", err.message);
-      alert("An unexpected error occurred while adding to the cart.");
+      console.error('Unexpected error:', err.message);
+      alert('An unexpected error occurred while adding to the cart.');
     }
   };
+  
   
   
   // Render category item
@@ -140,9 +145,16 @@ export default function HomePage() {
       <View style={styles.foodInfo}>
         <Text style={styles.foodName}>{item.name}</Text>
         <Text style={styles.foodPrice}>₱{item.price}.00</Text>
-        <TouchableOpacity onPress={() => toggleFavorite(item)}>
+        <TouchableOpacity
+          onPress={() => toggleFavorite({
+            food_id: item.id, // Pass food_id from food_items table
+            name: item.name,
+            price: item.price,
+            image: item.image,
+          })}
+        >
           <Ionicons
-            name={favorites.some((fav) => fav.id === item.id) ? 'heart' : 'heart-outline'}
+            name={favorites.some((fav) => fav.food_id === item.id) ? 'heart' : 'heart-outline'}
             size={24}
             color="#FF6F61"
           />
@@ -151,18 +163,20 @@ export default function HomePage() {
     </TouchableOpacity>
   );
   
+  
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header Section */}
       <View style={styles.header}>
-        <Text style={styles.welcomeText}>Welcome User!</Text>
+        <Text style={styles.welcomeText}>TAPpetite</Text>
         <TextInput
           style={styles.searchBar}
           placeholder="Search"
           placeholderTextColor="#aaa"
           value={searchQuery}
           onChangeText={(text) => setSearchQuery(text)}
+          color="#fff"
         />
       </View>
 
@@ -190,49 +204,49 @@ export default function HomePage() {
           renderItem={renderFoodItem}
           contentContainerStyle={styles.foodList}
         />
-            {selectedItem && (
-        <Modal visible={isModalVisible} transparent animationType="slide">
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Image source={{ uri: selectedItem.image }} style={styles.modalImage} />
-              <Text style={styles.modalTitle}>{selectedItem.name}</Text>
-              <Text style={styles.modalPrice}>₱{selectedItem.price}.00</Text>
+      {selectedItem && (
+      <Modal visible={isModalVisible} transparent animationType="slide">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Image source={{ uri: selectedItem.image }} style={styles.modalImage} />
+            <Text style={styles.modalTitle}>{selectedItem.name}</Text>
+            <Text style={styles.modalPrice}>₱{selectedItem.price}.00</Text>
 
-              {/* Quantity Selector */}
-              <View style={styles.quantityContainer}>
-                <TouchableOpacity
-                  style={styles.quantityButton}
-                  onPress={() => setQuantity(Math.max(1, quantity - 1))}
-                >
-                  <Text style={styles.quantityText}>-</Text>
-                </TouchableOpacity>
-                <Text style={styles.quantityValue}>{quantity}</Text>
-                <TouchableOpacity
-                  style={styles.quantityButton}
-                  onPress={() => setQuantity(quantity + 1)}
-                >
-                  <Text style={styles.quantityText}>+</Text>
-                </TouchableOpacity>
-              </View>
+            {/* Quantity Selector */}
+            <View style={styles.quantityContainer}>
+              <TouchableOpacity
+                style={styles.quantityButton}
+                onPress={() => setQuantity(Math.max(1, quantity - 1))}
+              >
+                <Text style={styles.quantityText}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.quantityValue}>{quantity}</Text>
+              <TouchableOpacity
+                style={styles.quantityButton}
+                onPress={() => setQuantity(quantity + 1)}
+              >
+                <Text style={styles.quantityText}>+</Text>
+              </TouchableOpacity>
+            </View>
 
-              {/* Total Price */}
-              <Text style={styles.totalPrice}>
-                Total: ₱{(quantity * selectedItem.price).toFixed(2)}
-              </Text>
+            {/* Total Price */}
+            <Text style={styles.totalPrice}>
+              Total: ₱{(quantity * selectedItem.price).toFixed(2)}
+            </Text>
 
-              {/* Buttons */}
-              <View style={styles.modalButtons}>
-                <TouchableOpacity style={styles.goBackButton} onPress={closeModal}>
-                  <Text style={styles.buttonText}>Go Back</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.purchaseButton} onPress={() => handleAddToCart(selectedItem.id, quantity, selectedItem.price)}>
-                  <Text style={styles.buttonText}>Add to Cart</Text>
-                </TouchableOpacity>
-              </View>
+            {/* Buttons */}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.goBackButton} onPress={closeModal}>
+                <Text style={styles.buttonText}>Go Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.purchaseButton} onPress={() => handleAddToCart(selectedItem.id, quantity, selectedItem.price)}>
+                <Text style={styles.buttonText}>Add to Cart</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      )}
+        </View>
+      </Modal>
+        )}
 
       </View>
     </SafeAreaView>
@@ -253,7 +267,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: '6%',
-    color: '#fff'
+    color: '#20AB7D'
   },
   searchBar: {
     height: 40,
@@ -261,6 +275,7 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     borderRadius: 8,
     paddingHorizontal: 8,
+    color: '#fff'
   },
   categoriesContainer: {
     marginVertical: 0,
@@ -385,7 +400,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 5,
     marginHorizontal: 20,
-    paddingHorizontal: '5%'
+    paddingHorizontal: '6%'
   },
   quantityText: {
     color: 'white',
@@ -400,7 +415,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 20,
-    color: '#20AB7D'
+    color: '#fff'
   },
   modalButtons: {
     flexDirection: 'row',
