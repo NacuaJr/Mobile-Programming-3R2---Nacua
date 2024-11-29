@@ -11,41 +11,87 @@ import {
 import { useCart } from '../context/CartContext';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { supabase } from '../utils/supabase';
+import { useBalance } from '../context/BalanceContext';
+import BalanceCard from './BalanceCard';
 
 const AddToCart = () => {
   const { cartItems, fetchCartItems } = useCart();
+  const { balance, setBalance } = useBalance(); // Access balance from context
+  const totalAmount = cartItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
 
-  // Calculate total price
-  const totalAmount = cartItems.reduce(
-    (sum, item) => sum + (item.total_price || 0),
-    0
-  );
+  const handlePurchase = async () => {
+    if (cartItems.length === 0) {
+      Alert.alert('Error', 'Your cart is empty!');
+      return;
+    }
 
-  // Remove item from cart
-  const handleRemoveItem = async (itemId) => {
     try {
-      const { error } = await supabase
-        .from('add_to_cart')
-        .delete()
-        .eq('id', itemId);
-
-      if (error) {
-        console.error('Error removing item:', error.message);
-        Alert.alert('Error', 'Failed to remove item from cart.');
+      const { data: userSession, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !userSession?.session?.user?.id) {
+        Alert.alert('Error', 'User not authenticated.');
         return;
       }
 
-      fetchCartItems(); // Refresh cart items after deletion
-      Alert.alert('Success', 'Item removed from cart.');
-    } catch (err) {
-      console.error('Unexpected error:', err.message);
-      Alert.alert('Error', 'An unexpected error occurred.');
-    }
-  };
+      const userId = userSession.session.user.id;
 
-  const proceedHandler = () => {
-    Alert.alert('Proceed', 'Proceeding to checkout...');
-    // Add your logic to handle proceeding to checkout here
+      // Fetch the user's current balance
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('balance')
+        .eq('id', userId)
+        .single();
+
+      if (userError) throw new Error(userError.message);
+
+      const currentBalance = userData.balance;
+
+      if (currentBalance < totalAmount) {
+        Alert.alert('Error', 'Insufficient balance to complete the purchase.');
+        return;
+      }
+
+      // Deduct balance
+      const updatedBalance = currentBalance - totalAmount;
+
+      const { error: balanceError } = await supabase
+        .from('users')
+        .update({ balance: updatedBalance })
+        .eq('id', userId);
+
+      if (balanceError) throw new Error(balanceError.message);
+
+      // Update the local balance state
+      setBalance(updatedBalance); // This ensures the updated balance is displayed immediately
+
+      // Store purchases in the purchases table
+      const purchaseData = cartItems.map((item) => ({
+        user_id: userId,
+        food_item_id: item.food_items.id,
+        quantity: item.quantity,
+        total_price: item.total_price,
+        purchased_at: new Date(),
+      }));
+
+      const { error: purchaseError } = await supabase
+        .from('purchases')
+        .insert(purchaseData);
+
+      if (purchaseError) throw new Error(purchaseError.message);
+
+      // Clear cart
+      const { error: cartError } = await supabase
+        .from('add_to_cart')
+        .delete()
+        .eq('user_id', userId);
+
+      if (cartError) throw new Error(cartError.message);
+
+      Alert.alert('Success', 'Purchase completed successfully!');
+      fetchCartItems(); // Refresh cart items
+    } catch (err) {
+      console.error('Error processing purchase:', err.message);
+      Alert.alert('Error', 'An error occurred while processing your purchase.');
+    }
   };
 
   return (
@@ -60,7 +106,6 @@ const AddToCart = () => {
             keyExtractor={(item) => item.id.toString()}
             renderItem={({ item }) => (
               <View style={styles.cartItem}>
-                {/* Trash Bin */}
                 <TouchableOpacity
                   onPress={() => handleRemoveItem(item.id)}
                   style={styles.trashButton}
@@ -68,34 +113,30 @@ const AddToCart = () => {
                   <Ionicons name="trash-outline" size={24} color="#FF6F61" />
                 </TouchableOpacity>
 
-                <Image
-                  source={{ uri: item.food_items.image }}
-                  style={styles.itemImage}
-                />
+                <Image source={{ uri: item.food_items.image }} style={styles.itemImage} />
                 <View style={styles.itemDetails}>
                   <Text style={styles.itemName}>{item.food_items.name}</Text>
-                  <Text style={styles.itemQuantity}>
-                    Quantity: {item.quantity}
-                  </Text>
+                  <Text style={styles.itemQuantity}>Quantity: {item.quantity}</Text>
                   <Text style={styles.itemPrice}>
                     Price: ₱{item.item_price.toFixed(2)}
                   </Text>
                 </View>
-
-                {/* Item Total Price in Bottom-Right */}
                 <Text style={styles.itemTotal}>
                   Total: ₱{item.total_price.toFixed(2)}
                 </Text>
               </View>
             )}
           />
-
-          {/* Total Amount and Proceed Button */}
           <View style={styles.footer}>
-            <Text style={styles.totalText}>
-              Total Amount: ₱{totalAmount.toFixed(2)}
-            </Text>
-            <TouchableOpacity style={styles.proceedButton} onPress={proceedHandler}>
+            <View>
+              <Text style={styles.totalText}>
+                Total Amount: ₱{totalAmount.toFixed(2)}
+              </Text>
+              <Text style={styles.balanceText}>
+                Current Balance: ₱{balance.toFixed(2)}
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.proceedButton} onPress={handlePurchase}>
               <Text style={styles.proceedButtonText}>Purchase</Text>
             </TouchableOpacity>
           </View>
@@ -127,9 +168,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#20AB7D',
-    padding: 12, // Increased padding
-    borderRadius: 10, // Slightly larger border radius
-    marginBottom: 12, // Adjusted spacing between cards
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
     position: 'relative',
   },
   trashButton: {
@@ -139,29 +180,29 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   itemImage: {
-    width: 80, // Increased width
-    height: 80, // Increased height
+    width: 80,
+    height: 80,
     borderRadius: 8,
-    marginRight: 10, // Slightly more spacing from text
+    marginRight: 10,
   },
   itemDetails: {
     flex: 1,
   },
   itemName: {
-    fontSize: 15, // Slightly larger font
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#fff',
   },
   itemQuantity: {
-    fontSize: 14, // Increased font size for better readability
+    fontSize: 14,
     color: '#fff',
   },
   itemPrice: {
-    fontSize: 14, // Increased font size for better readability
+    fontSize: 14,
     color: '#fff',
   },
   itemTotal: {
-    fontSize: 13, // Increased font size for visibility
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#fff',
     position: 'absolute',
@@ -178,19 +219,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   totalText: {
-    fontSize: 20, // Slightly larger font for emphasis
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
   },
+  balanceText: {
+    fontSize: 16,
+    color: '#aaa',
+    marginTop: 5,
+  },
   proceedButton: {
     backgroundColor: '#20AB7D',
-    paddingVertical: 14, // Slightly larger button height
-    paddingHorizontal: 20, // Slightly wider button
-    borderRadius: 10, // Larger border radius
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
     alignItems: 'center',
   },
   proceedButtonText: {
-    fontSize: 18, // Larger font for the button text
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
   },

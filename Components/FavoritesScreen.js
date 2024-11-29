@@ -4,6 +4,8 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useFavorites } from '../context/FavoritesContext';
 import { getCurrentUserId } from '../api/apicalls'; // Ensure the path is correct
 import { supabase } from '../utils/supabase';
+import BalanceCard from './BalanceCard';
+
 export default function FavoritesScreen() {
   const { favorites, toggleFavorite } = useFavorites();
   

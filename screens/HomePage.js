@@ -16,6 +16,8 @@ import { supabase } from '../utils/supabase'; // Assuming you have set up Supaba
 import { useFavorites } from '../context/FavoritesContext';
 import { getCurrentUserId } from '../api/apicalls'; // Ensure the path is correct
 import { useCart } from '../context/CartContext';
+import BalanceCard from '../Components/BalanceCard';
+
 const { width } = Dimensions.get('window');
 
 export default function HomePage() {
@@ -170,6 +172,7 @@ export default function HomePage() {
       {/* Header Section */}
       <View style={styles.header}>
         <Text style={styles.welcomeText}>TAPpetite</Text>
+        <BalanceCard/>
         <TextInput
           style={styles.searchBar}
           placeholder="Search"
