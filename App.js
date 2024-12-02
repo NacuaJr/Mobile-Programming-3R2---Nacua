@@ -11,7 +11,7 @@ import { FavoritesProvider } from './context/FavoritesContext';
 import { CartProvider } from './context/CartContext';
 import { BalanceProvider } from './context/BalanceContext';
 import TryPremiumScreen from './Components/TryPremiumScreen';
-
+import TermsOfService from './screens/TermsOfService';
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -26,8 +26,9 @@ export default function App() {
           <Stack.Screen name="Signup" component={Signup} />
           <Stack.Screen name="Nav" component={Nav} options={{ headerShown: false }} />
           <Stack.Screen name="FavoritesScreens" component={FavoritesScreen} options={{headerShown: false}}/>
-          <Stack.Screen name="TryPremiumScreen" component={TryPremiumScreen} options={{ title: 'Try Premium', headerShown: true }}
-  />
+          <Stack.Screen name="TryPremiumScreen" component={TryPremiumScreen} options={{ title: 'Try Premium', headerShown: false }}/>
+          <Stack.Screen name="TermsOfService" component={TermsOfService} options={{headerShown: false}} />
+
         </Stack.Navigator>
       </NavigationContainer>
     </BalanceProvider>

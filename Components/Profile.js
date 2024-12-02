@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-na
 import { supabase } from '../utils/supabase';
 import { useBalance } from '../context/BalanceContext';
 import { Ionicons } from '@expo/vector-icons';
-import LoginScreen from '../screens/LoginScreen';
 
 const Profile = ({navigation}) => {
 
