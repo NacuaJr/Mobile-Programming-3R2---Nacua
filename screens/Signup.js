@@ -7,6 +7,7 @@ export default function RegisterPage({ navigation }) {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');
+    const [studentId, setStudentId] = useState(''); 
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isLoginButtonPressed, setIsLoginButtonPressed] = useState(false);
@@ -51,6 +52,7 @@ export default function RegisterPage({ navigation }) {
                 {
                     id: userId,
                     email: email,
+                    student_id: studentId, 
                     first_name: firstName,
                     last_name: lastName,
                 },
@@ -83,6 +85,13 @@ export default function RegisterPage({ navigation }) {
                 <StatusBar style="light" />
                 <Text style={styles.registerText}>Register</Text>
 
+                <TextInput
+                    style={styles.studentId} 
+                    placeholder="Student ID"
+                    placeholderTextColor="#fff"
+                    value={studentId}
+                    onChangeText={setStudentId}
+                />
                 <TextInput
                     style={styles.firstName}
                     placeholder="First name"
@@ -170,7 +179,7 @@ const styles = StyleSheet.create({
         width: '75%',
         height: 50,
         alignSelf: 'center',
-        marginTop: '7%',
+        marginTop: '4%',
         borderRadius: 12,
         paddingLeft: 20,
     },
@@ -185,6 +194,16 @@ const styles = StyleSheet.create({
         paddingLeft: 20,
     },
     userEmail: {
+        backgroundColor: '#17171B',
+        color: '#fff',
+        width: '75%',
+        height: 50,
+        alignSelf: 'center',
+        marginTop: '4%',
+        borderRadius: 12,
+        paddingLeft: 20,
+    },
+    studentId: { // New style for Student ID input
         backgroundColor: '#17171B',
         color: '#fff',
         width: '75%',
@@ -240,7 +259,7 @@ const styles = StyleSheet.create({
     },
     TOS: {
         alignSelf: 'center',
-        marginTop: '23.7%',
+        marginTop: '15.7%',
     },
     agreeText: {
         color: '#fff',

@@ -85,9 +85,16 @@ const Profile = ({navigation}) => {
       </View>
 
       {/* Button for Payments */}
+     {/* Send Money Button */}
+      <TouchableOpacity style={styles.paymentButton}>
+        <Text style={styles.paymentButtonText}>Send Money</Text>
+      </TouchableOpacity>
+
+      {/* Button for Payments */}
       <TouchableOpacity style={styles.paymentButton}>
         <Text style={styles.paymentButtonText}>Receive Payment</Text>
       </TouchableOpacity>
+
 
       {/* Navigation Options */}
       <View style={styles.menu}>
@@ -161,7 +168,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     width: '70%',
     alignSelf: 'center',
-    marginTop: '5%'
+    marginTop: '3%'
   },
   paymentButtonText: {
     fontSize: 16,
