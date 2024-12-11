@@ -21,7 +21,7 @@ export default function RegisterPage({ navigation }) {
             Alert.alert("Error", "Passwords do not match!");
             return;
         }
-
+    
         try {
             // Step 1: Register the user with Supabase Auth
             const { data, error } = await supabase.auth.signUp({
@@ -34,47 +34,62 @@ export default function RegisterPage({ navigation }) {
                     },
                 },
             });
-
+    
             if (error) {
                 console.error("Auth Error:", error.message);
                 Alert.alert("Registration failed", error.message);
                 return;
             }
-
+    
             const userId = data.user?.id;
             if (!userId) {
                 Alert.alert("Error", "Failed to retrieve user ID after registration.");
                 return;
             }
-
-            // Step 2: Insert user data into the custom `users` table
+    
+            // Step 2: Fetch random user profile picture
+            let profilePictureUrl = null;
+            try {
+                const response = await fetch('https://randomuser.me/api/');
+                if (!response.ok) throw new Error("Failed to fetch profile picture");
+    
+                const json = await response.json();
+                profilePictureUrl = json.results[0]?.picture?.large || null;
+            } catch (apiError) {
+                console.error("Profile Picture Error:", apiError.message);
+            }
+    
+            // Step 3: Insert user data into the custom `users` table
             const { error: dbError } = await supabase.from('users').insert([
                 {
                     id: userId,
                     email: email,
-                    student_id: studentId, 
+                    student_id: studentId,
                     first_name: firstName,
                     last_name: lastName,
+                    profile_picture: profilePictureUrl,
                 },
             ]);
-
+    
             if (dbError) {
                 console.error("Database Error:", dbError.message);
                 Alert.alert("Registration failed", "Failed to save user details.");
                 return;
             }
-
+    
             Alert.alert(
                 "Registration Successful",
                 "Please check your email to verify your account."
             );
-            navigation.navigate('LoginScreen'); // Redirect to login after success
+    
+            // Navigate to login screen
+            navigation.navigate('LoginScreen');
         } catch (err) {
             console.error("Unexpected Error:", err.message);
             Alert.alert("Registration failed", "An unexpected error occurred.");
         }
     };
-
+    
     const toTerms = () => {
         navigation.navigate('TermsOfService');
     };

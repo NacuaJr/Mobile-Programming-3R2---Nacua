@@ -1,0 +1,89 @@
+CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  student_id VARCHAR NOT NULL UNIQUE,
+  email VARCHAR NOT NULL UNIQUE,
+  first_name VARCHAR NOT NULL,
+  last_name VARCHAR NOT NULL,
+  balance NUMERIC DEFAULT 0,  -- Nullable by default
+  profile_picture TEXT
+);
+
+CREATE TABLE categories (
+  id INT PRIMARY KEY,  -- Assuming that the `id` is manually set (not SERIAL)
+  name VARCHAR NOT NULL,
+  image VARCHAR NOT NULL
+);
+
+CREATE TABLE favorites (
+  id SERIAL PRIMARY KEY,
+  food_id INT REFERENCES food_items(id),
+  name TEXT NOT NULL,
+  price TEXT NOT NULL,
+  image TEXT NOT NULL,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE
+
+);
+CREATE TABLE food_items (
+  id INT PRIMARY KEY,  -- Assuming the `id` is manually set (not SERIAL)
+  name VARCHAR NOT NULL,
+  price VARCHAR NOT NULL,  -- If you want to store price as text, otherwise use NUMERIC or DECIMAL
+  image VARCHAR NOT NULL,
+  category_id INT REFERENCES categories(id) ON DELETE SET NULL -- FK from categories table
+  food_id INT,
+);
+
+CREATE TABLE add_to_cart (
+  id SERIAL PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  food_item_id INT REFERENCES food_items(id) ON DELETE CASCADE,
+  quantity INT NOT NULL,
+  total_price NUMERIC NOT NULL,
+  item_price NUMERIC,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+
+CREATE TABLE purchases (
+    id SERIAL PRIMARY KEY,                 -- Unique identifier for the purchase entry
+    user_id UUID REFERENCES users(id),     -- Foreign key to the users table
+    food_item_id INT REFERENCES food_items(id), -- Foreign key to the food_items table
+    quantity INT NOT NULL,                 -- Quantity of the item purchased
+    total_price NUMERIC(10, 2) NOT NULL,   -- Total price (price * quantity)
+    purchased_at TIMESTAMP DEFAULT NOW()   -- Timestamp of when the purchase was made
+);
+
+
+
+INSERT INTO categories (id, name, image) VALUES
+(1, 'Burgers', 'https://images.unsplash.com/photo-1603893662172-99ed0cea2a08?q=80&w=1527&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'),
+(2, 'Pizzas', 'https://images.unsplash.com/photo-1659561158823-61fbd1bf5f17?q=80&w=1530&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'),
+(3, 'Desserts', 'https://images.unsplash.com/photo-1582461833047-2aeb4f8af173?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'),
+(4, 'Beverages', 'https://images.unsplash.com/photo-1517620430776-0ec904756579?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'),
+(5, 'Sushi', 'https://images.unsplash.com/photo-1611143669185-af224c5e3252?q=80&w=1632&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'),
+(6, 'Pasta', 'https://images.unsplash.com/photo-1447279506476-3faec8071eee?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'),
+(7, 'Salads', 'https://plus.unsplash.com/premium_photo-1689596510351-e246d2fd7bae?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'),
+(8, 'Sandwiches', 'https://images.unsplash.com/photo-1702569798699-f3fe0afc6226?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'),
+(9, 'Seafood', 'https://images.unsplash.com/photo-1608135227059-95aacee01035?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'),
+(10, 'Breakfast', 'https://plus.unsplash.com/premium_photo-1672363353897-ae5a81a1ab57?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+
+INSERT INTO food_items (id, name, price, image, category_id) VALUES
+(1, 'Classic Cheeseburger', '8.99', 'https://images.unsplash.com/photo-1603508102983-99b101395d1a?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 1),
+(2, 'Bacon Double Cheeseburger', '10.99', 'https://plus.unsplash.com/premium_photo-1683619761492-639240d29bb5?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 1),
+(3, 'Margherita Pizza', '7.99', 'https://images.unsplash.com/photo-1649688423692-308d2fc1027d?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 2),
+(4, 'Pepperoni Pizza', '9.99', 'https://images.unsplash.com/photo-1628840042765-356cda07504e?q=80&w=1480&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 2),
+(5, 'Tiramisu', '6.50', 'https://plus.unsplash.com/premium_photo-1695028378225-97fbe39df62a?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 3),
+(6, 'Chocolate Lava Cake', '5.99', 'https://images.unsplash.com/photo-1652561781059-58d5d9ffcb4d?q=80&w=1528&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 3),
+(7, 'Fresh Lemonade', '3.50', 'https://images.unsplash.com/photo-1660225411990-6d5a97be1966?q=80&w=1471&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 4),
+(8, 'Iced Coffee', '4.00', 'https://images.unsplash.com/photo-1514189347135-3e90a3b561f7?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 4),
+(9, 'California Roll', '11.50', 'https://images.unsplash.com/photo-1559410545-0bdcd187e0a6?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 5),
+(10, 'Spicy Tuna Roll', '12.00', 'https://images.unsplash.com/photo-1490052048947-f6d652c8512a?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 5),
+(11, 'Spaghetti Carbonara', '8.99', 'https://images.unsplash.com/photo-1633337474564-1d9478ca4e2e?q=80&w=1471&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 6),
+(12, 'Penne Arrabiata', '9.50', 'https://images.unsplash.com/photo-1607116667981-ff148a14e975?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 6),
+(13, 'Caesar Salad', '7.50', 'https://images.unsplash.com/photo-1669283714145-f97867f6c238?q=80&w=1528&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 7),
+(14, 'Greek Salad', '8.00', 'https://plus.unsplash.com/premium_photo-1690561082636-06237f98bfab?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 7),
+(15, 'Grilled Chicken Sandwich', '8.99', 'https://images.unsplash.com/photo-1597579018905-8c807adfbed4?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 8),
+(16, 'Club Sandwich', '9.50', 'https://images.unsplash.com/photo-1709689156424-16fe0e05b47b?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 8),
+(17, 'Grilled Salmon', '15.99', 'https://images.unsplash.com/photo-1611599537845-1c7aca0091c0?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 9),
+(18, 'Garlic Butter Shrimp', '14.99', 'https://images.unsplash.com/photo-1595117796900-e3bb784ea0db?q=80&w=1474&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 9),
+(19, 'Pancakes', '5.99', 'https://plus.unsplash.com/premium_photo-1663854478296-dd00b6257021?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 10),
+(20, 'Eggs Benedict', '7.99', 'https://images.unsplash.com/photo-1503442947665-4c7bb47d5daf?q=80&w=1535&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 10);

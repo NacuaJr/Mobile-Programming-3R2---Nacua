@@ -1,33 +1,41 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  Alert,
+  Modal,
+  TextInput,
+  Button,
+} from 'react-native';
 import { supabase } from '../utils/supabase';
 import { useBalance } from '../context/BalanceContext';
 import { Ionicons } from '@expo/vector-icons';
 
-const Profile = ({navigation}) => {
+const Profile = ({ navigation }) => {
+  const [userData, setUserData] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [recipientId, setRecipientId] = useState('');
+  const [amount, setAmount] = useState('');
+  const { balance, setBalance } = useBalance();
+  const [password, setPassword] = useState('');
+  const [receiveModalVisible, setReceiveModalVisible] = useState(false);
+  const [senderId, setSenderId] = useState('');
 
   const handleLogout = async () => {
     try {
       const { error } = await supabase.auth.signOut();
-  
       if (error) {
-        console.error('Supabase logout error:', error);
         Alert.alert('Error', 'Failed to log out. Please try again.');
         return;
       }
-  
-      // Optional: Clear any context or cached data here, if applicable
-      // Redirect to login screen
-      navigation.replace('LoginScreen'); // Replace 'LoginScreen' with your actual screen name
+      navigation.replace('LoginScreen');
     } catch (err) {
-      console.error('Unexpected logout error:', err);
       Alert.alert('Error', 'An unexpected error occurred during logout.');
     }
   };
-  
-  
-  const [userData, setUserData] = useState(null);
-  const { balance } = useBalance();
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -40,19 +48,113 @@ const Profile = ({navigation}) => {
             .from('users')
             .select('first_name, last_name, profile_picture')
             .eq('id', userId)
-            .single();
+            .maybeSingle();
 
           if (error) throw new Error(error.message);
+          if (!data) {
+            Alert.alert('Warning', 'No user data found.');
+            return;
+          }
           setUserData(data);
         }
       } catch (error) {
-        console.error('Error fetching user data:', error.message);
         Alert.alert('Error', 'Failed to fetch user information.');
       }
     };
 
     fetchUserData();
   }, []);
+
+  const handleSendMoney = async () => {
+    const amountValue = parseFloat(amount);
+  
+    if (isNaN(amountValue) || amountValue <= 0) {
+      Alert.alert('Invalid Input', 'Please enter a valid amount greater than 0.');
+      return;
+    }
+  
+    if (amountValue > balance) {
+      Alert.alert('Insufficient Balance', 'You do not have enough balance to complete this transaction.');
+      return;
+    }
+  
+    try {
+      // Get the current user's session and email
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session?.session?.user?.id;
+      const userEmail = session?.session?.user?.email;
+  
+      if (!userId || !userEmail) {
+        Alert.alert('Error', 'User not logged in.');
+        return;
+      }
+  
+      // Validate the password via Supabase authentication
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: userEmail, // Provide the email from the session
+        password: password,
+      });
+  
+      if (authError) {
+        console.error('Password Validation Error:', authError.message);
+        Alert.alert('Error', 'Incorrect password. Please try again.');
+        return;
+      }
+  
+      // Fetch recipient balance
+      const { data: recipientData, error: recipientError } = await supabase
+        .from('users')
+        .select('balance')
+        .eq('student_id', recipientId)
+        .single();
+  
+      if (recipientError) {
+        console.error('Recipient Fetch Error:', recipientError.message);
+        Alert.alert('Error', 'Recipient not found.');
+        return;
+      }
+  
+      // Update sender's balance
+      const { error: senderError } = await supabase
+        .from('users')
+        .update({ balance: balance - amountValue })
+        .eq('id', userId);
+  
+      if (senderError) {
+        console.error('Sender Balance Update Error:', senderError.message);
+        Alert.alert('Error', 'Failed to update sender\'s balance.');
+        return;
+      }
+  
+      // Update recipient's balance
+      const { error: recipientUpdateError } = await supabase
+        .from('users')
+        .update({ balance: recipientData.balance + amountValue })
+        .eq('student_id', recipientId);
+  
+      if (recipientUpdateError) {
+        console.error('Recipient Balance Update Error:', recipientUpdateError.message);
+        Alert.alert('Error', 'Failed to update recipient\'s balance.');
+        return;
+      }
+  
+      setBalance(balance - amountValue);
+      Alert.alert('Success', `₱${amountValue.toFixed(2)} sent successfully to Student ID: ${recipientId}`);
+      setModalVisible(false);
+      setRecipientId('');
+      setAmount('');
+      setPassword(''); // Reset the password field
+    } catch (err) {
+      console.error('Unexpected Error:', err.message);
+      Alert.alert('Error', 'An unexpected error occurred.');
+    }
+  };
+  
+  const handleReceiveMoney = () => {
+    // Receive money logic here
+    Alert.alert('Receive Money', `Receiving ${amount} from ${recipientId}`);
+  };
+  
 
   if (!userData) {
     return (
@@ -64,12 +166,9 @@ const Profile = ({navigation}) => {
 
   return (
     <View style={styles.container}>
-      {/* Profile Header */}
       <View style={styles.header}>
         <Image
-          source={{
-            uri: userData.profile_picture,
-          }} // Fallback to a placeholder image if no profile picture
+          source={{ uri: userData.profile_picture }}
           style={styles.profileImage}
         />
         <Text style={styles.userName}>
@@ -78,40 +177,146 @@ const Profile = ({navigation}) => {
         <Text style={styles.userRole}>Student</Text>
       </View>
 
-      {/* Total Balance */}
       <View style={styles.balanceContainer}>
         <Text style={styles.balanceLabel}>Total Balance:</Text>
         <Text style={styles.balanceValue}>₱ {balance.toFixed(2)}</Text>
       </View>
 
-      {/* Button for Payments */}
-     {/* Send Money Button */}
-      <TouchableOpacity style={styles.paymentButton}>
+      <TouchableOpacity
+        style={styles.paymentButton}
+        onPress={() => setModalVisible(true)}
+      >
         <Text style={styles.paymentButtonText}>Send Money</Text>
       </TouchableOpacity>
 
-      {/* Button for Payments */}
-      <TouchableOpacity style={styles.paymentButton}>
-        <Text style={styles.paymentButtonText}>Receive Payment</Text>
+      <TouchableOpacity
+        style={styles.paymentButton}
+        onPress={() => setReceiveModalVisible(true)}
+      >
+        <Text style={styles.buttonText}>Receive Money</Text>
       </TouchableOpacity>
+      
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Send Money</Text>
+            <Text style={{color: '#FFF'}}>Current Balance: ₱{balance.toFixed(2)}</Text>
+            <Text style={{ color: '#FFF', alignSelf: 'flex-start' }}>Recipient Student ID</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter Student ID"
+              placeholderTextColor="#676569" // Changes placeholder text color to white
+              value={recipientId}
+              onChangeText={setRecipientId}
+            />
+
+            <Text style={{ color: '#FFF', alignSelf: 'flex-start' }}>Amount to Send</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter amount"
+              placeholderTextColor="#676569" // Changes placeholder text color to white
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
+            />
+            <Text style={{ color: '#FFF', alignSelf: 'flex-start' }}>Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your password"
+              placeholderTextColor="#676569"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+
+           <View style={styles.modalButtons}>
+           <TouchableOpacity
+            style={[styles.button, styles.goBackButton]}
+            onPress={() => setModalVisible(false)}
+          >
+            <Text style={styles.buttonText}>Go Back</Text>
+           </TouchableOpacity>
+           <TouchableOpacity
+            style={[styles.button, styles.sendButton]}
+            onPress={handleSendMoney}
+           >
+            <Text style={styles.buttonText}>Send Money</Text>
+           </TouchableOpacity>
+           </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+  animationType="slide"
+  transparent={true}
+  visible={receiveModalVisible}
+  onRequestClose={() => setReceiveModalVisible(false)}
+>
+  <View style={styles.modalContainer}>
+    <View style={styles.modalContent}>
+      <Text style={styles.modalTitle}>Receive Money</Text>
+
+      <Text style={{ color: '#FFF', alignSelf: 'flex-start' }}>Sender Student ID</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Enter Sender Student ID"
+        placeholderTextColor="#676569"
+        value={senderId}
+        onChangeText={setSenderId}
+      />
+
+      <Text style={{ color: '#FFF', alignSelf: 'flex-start' }}>Amount to Receive</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Enter amount"
+        placeholderTextColor="#676569"
+        value={amount}
+        onChangeText={setAmount}
+        keyboardType="numeric"
+      />
+
+      <View style={styles.modalButtons}>
+        <TouchableOpacity
+          style={[styles.button, styles.goBackButton]}
+          onPress={() => setReceiveModalVisible(false)}
+        >
+          <Text style={styles.buttonText}>Go Back</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, styles.receiveButton]}
+          onPress={handleReceiveMoney}
+        >
+          <Text style={styles.buttonText}>Confirm Receive</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+      </Modal>
 
 
-      {/* Navigation Options */}
       <View style={styles.menu}>
-        <TouchableOpacity style={styles.menuItem}  onPress={() => navigation.navigate('TryPremiumScreen')}>
-          <Ionicons name="star-outline" size={20} color="#FFF" style={styles.menuIcon} />
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigation.navigate('TryPremiumScreen')}
+        >
+          <Ionicons name="star-outline" size={20} color="#FFF" />
           <Text style={styles.menuText}>Try Premium</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem}>
-          <Ionicons name="settings-outline" size={20} color="#FFF" style={styles.menuIcon} />
+          <Ionicons name="settings-outline" size={20} color="#FFF" />
           <Text style={styles.menuText}>Settings</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color="#FFF" style={styles.menuIcon} />
+          <Ionicons name="log-out-outline" size={20} color="#FFF" />
           <Text style={styles.menuText}>Log Out</Text>
         </TouchableOpacity>
-      </View> 
-
+      </View>
     </View>
   );
 };
@@ -126,7 +331,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 24,
-    marginTop: '25%'
+    marginTop: '25%',
   },
   profileImage: {
     width: 100,
@@ -168,7 +373,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     width: '70%',
     alignSelf: 'center',
-    marginTop: '3%'
+    marginTop: '3%',
   },
   paymentButtonText: {
     fontSize: 16,
@@ -199,11 +404,62 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    color: '#AAA',
+    color: '#FFF',
   },
-  menuIcon: {
-    marginRight: 10, // Space between icon and text
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
+  modalContent: {
+    width: '90%',
+    backgroundColor: '#25242B',
+    borderRadius: 8,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    color: '#20AB7D'
+  },
+  input: {
+    width: '100%',
+    borderColor: '#CCC',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginVertical: 8,
+    color: '#fff'
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',  // Ensures space between buttons
+    width: '100%',                    // Ensures buttons take the full width of the container
+    marginTop: 16,
+  },
+  button: {
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    width: '48%',  // Buttons take up 48% of the container's width (leaving space between them)
+    marginVertical: 8,
+  },
+  sendButton: {
+    backgroundColor: '#20AB7D',  // Green color for Send Money
+  },
+  goBackButton: {
+    backgroundColor: '#F44336',  // Red color for Go Back
+  },
+  buttonText: {
+    fontSize: 16,
+    color: '#FFF',
+    fontWeight: 'bold',
+  },
+  
 });
 
 export default Profile;
+
