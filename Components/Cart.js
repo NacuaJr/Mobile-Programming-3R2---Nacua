@@ -19,6 +19,26 @@ const AddToCart = () => {
   const { balance, setBalance } = useBalance(); // Access balance from context
   const totalAmount = cartItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
 
+  const handleRemoveItem = async (itemId) => {
+    try {
+      const { error } = await supabase
+        .from('add_to_cart')
+        .delete()
+        .eq('id', itemId);
+
+      if (error) {
+        console.error('Error removing item:', error.message);
+        Alert.alert('Error', 'Failed to remove item from cart.');
+        return;
+      }
+
+      fetchCartItems(); // Refresh cart items after deletion
+    } catch (err) {
+      console.error('Unexpected error:', err.message);
+      Alert.alert('Error', 'An unexpected error occurred.');
+    }
+  };
+
   const handlePurchase = async () => {
     if (cartItems.length === 0) {
       Alert.alert('Error', 'Your cart is empty!');

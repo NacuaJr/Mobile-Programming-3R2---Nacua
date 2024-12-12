@@ -9,7 +9,8 @@ import {
   Dimensions,
   TouchableOpacity,
   SafeAreaView,
-  Modal
+  Modal,
+  BackHandler
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { supabase } from '../utils/supabase'; // Assuming you have set up Supabase in utils
@@ -20,7 +21,7 @@ import BalanceCard from '../Components/BalanceCard';
 
 const { width } = Dimensions.get('window');
 
-export default function HomePage() {
+export default function HomePage({navigation}) {
   const [categories, setCategories] = useState([]);
   const [foodItems, setFoodItems] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,11 +36,41 @@ export default function HomePage() {
 
   const { fetchCartItems } = useCart(); // Use the cart context
 
+  const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
+
+
   // Fetch categories and food items when the component mounts
   useEffect(() => {
     fetchCategories();
     fetchFoodItems();
   }, []);
+
+  useEffect(() => {
+    const backAction = () => {
+      setIsLogoutModalVisible(true); // Show the logout modal
+      return true; // Prevent default back button behavior
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove(); // Cleanup on unmount
+  }, []);
+
+  const onLogout = async () => {
+      try {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          Alert.alert('Error', 'Failed to log out. Please try again.');
+          return;
+        }
+        navigation.replace('LoginScreen');
+      } catch (err) {
+        Alert.alert('Error', 'An unexpected error occurred during logout.');
+      }
+    };
 
   // Fetch categories from Supabase
   const fetchCategories = async () => {
@@ -89,6 +120,10 @@ export default function HomePage() {
     setSelectedItem(null);
   };
 
+  const onCancel = () => {
+    setIsLogoutModalVisible(false);
+  };
+  
   
   const handleAddToCart = async (foodItemId, quantity, price) => {
     try {
@@ -252,6 +287,39 @@ export default function HomePage() {
         )}
 
       </View>
+
+      <Modal
+    transparent
+    visible={isLogoutModalVisible}
+    animationType="slide"
+    onRequestClose={() => setIsLogoutModalVisible(false)} // Close modal if back button is pressed while modal is open
+  >
+      <View style={styles.logmodalContainer}>
+        <View style={styles.logmodalContent}>
+          <Text style={styles.logmodalText}>Do you want to log out?</Text>
+          <View style={styles.logbuttonContainer}>
+            <TouchableOpacity
+              style={styles.logcancelButton}
+              onPress={() => {
+                setIsLogoutModalVisible(false);
+                onCancel && onCancel();
+              }}
+            >
+              <Text style={styles.logbuttonText}>No</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={() => {
+                setIsLogoutModalVisible(false);
+                onLogout && onLogout();
+              }}
+            >
+              <Text style={styles.logbuttonText}>Yes</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
     </SafeAreaView>
   );
 }
@@ -444,6 +512,50 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
-  
+
+  logmodalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  logmodalContent: {
+    width: '80%',
+    backgroundColor: '#25242B',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+  },
+  logmodalText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 20,
+  },
+  logbuttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  logcancelButton: {
+    backgroundColor: '#FF6F61',
+    padding: 10,
+    borderRadius: 5,
+    flex: 1,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  logoutButton: {
+    backgroundColor: '#20AB7D',
+    padding: 10,
+    borderRadius: 5,
+    flex: 1,
+    alignItems: 'center',
+  },
+  logbuttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+
 });
 

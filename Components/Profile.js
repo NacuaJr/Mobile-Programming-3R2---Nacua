@@ -9,11 +9,12 @@ import {
   Modal,
   TextInput,
   Button,
+  ActivityIndicator,
 } from 'react-native';
 import { supabase } from '../utils/supabase';
 import { useBalance } from '../context/BalanceContext';
 import { Ionicons } from '@expo/vector-icons';
-
+import axios from 'axios';
 const Profile = ({ navigation }) => {
   const [userData, setUserData] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -23,6 +24,9 @@ const Profile = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [receiveModalVisible, setReceiveModalVisible] = useState(false);
   const [senderId, setSenderId] = useState('');
+  const [receiverStudentId, setReceiverStudentId] = useState('');
+  const [isModalVisible, setIsModalVisible] = useState(false);
+
 
   const handleLogout = async () => {
     try {
@@ -65,15 +69,40 @@ const Profile = ({ navigation }) => {
     fetchUserData();
   }, []);
 
+  useEffect(() => {
+    const fetchReceiverStudentId = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('student_id')
+          .eq('id', user.id)
+          .single();
+  
+        if (error) {
+          Alert.alert('Error', 'Failed to fetch receiver student ID.');
+        } else {
+          setReceiverStudentId(data.student_id);
+        }
+      } else {
+        Alert.alert('Error', 'Failed to fetch logged-in user ID.');
+      }
+    };
+  
+    fetchReceiverStudentId();
+  }, []);
+  
   const handleSendMoney = async () => {
     const amountValue = parseFloat(amount);
   
     if (isNaN(amountValue) || amountValue <= 0) {
+      setModalVisible(false)
       Alert.alert('Invalid Input', 'Please enter a valid amount greater than 0.');
       return;
     }
   
     if (amountValue > balance) {
+      setModalVisible(false)
       Alert.alert('Insufficient Balance', 'You do not have enough balance to complete this transaction.');
       return;
     }
@@ -96,7 +125,7 @@ const Profile = ({ navigation }) => {
       });
   
       if (authError) {
-        console.error('Password Validation Error:', authError.message);
+        setModalVisible(false)
         Alert.alert('Error', 'Incorrect password. Please try again.');
         return;
       }
@@ -109,7 +138,7 @@ const Profile = ({ navigation }) => {
         .single();
   
       if (recipientError) {
-        console.error('Recipient Fetch Error:', recipientError.message);
+        setModalVisible(false);
         Alert.alert('Error', 'Recipient not found.');
         return;
       }
@@ -121,7 +150,6 @@ const Profile = ({ navigation }) => {
         .eq('id', userId);
   
       if (senderError) {
-        console.error('Sender Balance Update Error:', senderError.message);
         Alert.alert('Error', 'Failed to update sender\'s balance.');
         return;
       }
@@ -133,7 +161,7 @@ const Profile = ({ navigation }) => {
         .eq('student_id', recipientId);
   
       if (recipientUpdateError) {
-        console.error('Recipient Balance Update Error:', recipientUpdateError.message);
+        setModalVisible(false);
         Alert.alert('Error', 'Failed to update recipient\'s balance.');
         return;
       }
@@ -145,17 +173,110 @@ const Profile = ({ navigation }) => {
       setAmount('');
       setPassword(''); // Reset the password field
     } catch (err) {
-      console.error('Unexpected Error:', err.message);
+      setModalVisible(false);
       Alert.alert('Error', 'An unexpected error occurred.');
     }
   };
   
-  const handleReceiveMoney = () => {
-    // Receive money logic here
-    Alert.alert('Receive Money', `Receiving ${amount} from ${recipientId}`);
+
+  const handleReceiveMoney = async () => {
+    setIsModalVisible(true);
+    setReceiveModalVisible(false);
+    try {
+      // Step 1: Trigger RFID reading on the ESP32
+      const response = await axios.get('http://192.168.1.18/trigger_rfid'); // Replace with your ESP32 IP
+  
+      if (response.data.success) {
+        const rfidUid = response.data.uid;
+        const parsedAmount = parseFloat(amount);
+  
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+          setIsModalVisible(false)
+          Alert.alert('Invalid Input', 'Please enter a valid amount greater than 0.');
+          return;
+        }
+  
+        // Step 2: Insert the transaction into the database
+        const { error: transactionError } = await supabase.from('transactions').insert([
+          {
+            receiver_student_id: receiverStudentId,
+            depositor_student_id: senderId,
+            amount: parsedAmount,
+            card_read: true,
+            rfid_uid: rfidUid,
+          },
+        ]);
+
+        if (transactionError) {
+          setIsModalVisible(false);
+          Alert.alert('Error', 'Sender ID not found. Please verify and try again.');
+          return;
+        }
+  
+        // Step 3: Update balances
+        // Fetch current user's balance
+        const { data: currentUserData, error: currentUserError } = await supabase
+          .from('users')
+          .select('balance')
+          .eq('student_id', receiverStudentId)
+          .single();
+  
+        if (currentUserError) {
+          setIsModalVisible(false);
+          Alert.alert('Error', 'Failed to fetch your balance.');
+          return;
+        }
+        // Fetch sender's balance
+        const { data: senderData, error: senderError } = await supabase
+        .from('users')
+        .select('balance')
+          .eq('student_id', senderId)
+          .single();
+  
+        
+  
+        // Update current user's balance
+        const updatedReceiverBalance = currentUserData.balance + parsedAmount;
+        const { error: updateReceiverError } = await supabase
+          .from('users')
+          .update({ balance: updatedReceiverBalance })
+          .eq('student_id', receiverStudentId);
+  
+        if (updateReceiverError) {
+          isModalVisible(false);
+          Alert.alert('Error', 'Failed to update your balance.');
+          return;
+        }
+  
+        // Update sender's balance
+        const updatedSenderBalance = senderData.balance - parsedAmount;
+        const { error: updateSenderError } = await supabase
+          .from('users')
+          .update({ balance: updatedSenderBalance })
+          .eq('student_id', senderId);
+  
+        if (updateSenderError) {
+          isModalVisible(false)
+          Alert.alert('Error', 'Failed to update sender\'s balance.');
+          return;
+        }
+  
+        Alert.alert('Success', `RFID scanned: ${rfidUid}. Transaction of ₱${parsedAmount.toFixed(2)} completed.`);
+        setBalance(balance + parsedAmount);
+        setReceiveModalVisible(false);
+        setAmount('');
+        setSenderId('');
+        setIsModalVisible(false);
+      } else {
+        Alert.alert('Error', 'RFID scanning failed. Please try again.');
+      }
+    } catch (err) {
+      isModalVisible(false);
+      Alert.alert('Error', 'Failed to connect to the ESP32.');
+    }
   };
   
-
+  
   if (!userData) {
     return (
       <View style={styles.loadingContainer}>
@@ -292,11 +413,26 @@ const Profile = ({ navigation }) => {
           style={[styles.button, styles.receiveButton]}
           onPress={handleReceiveMoney}
         >
-          <Text style={styles.buttonText}>Confirm Receive</Text>
+          <Text style={styles.buttonText}>Proceed</Text>
         </TouchableOpacity>
+
       </View>
     </View>
   </View>
+      </Modal>
+
+      <Modal
+        transparent={true}
+        animationType="fade"
+        visible={isModalVisible}
+        onRequestClose={() => setIsModalVisible(false)} // Optional close action
+      >
+        <View style={styles.modalBackground}>
+          <View style={styles.waitmodalContainer}>
+            <ActivityIndicator size="large" color="#20AB7D" />
+            <Text style={styles.modalText}>Please scan your card...</Text>
+          </View>
+        </View>
       </Modal>
 
 
@@ -307,10 +443,6 @@ const Profile = ({ navigation }) => {
         >
           <Ionicons name="star-outline" size={20} color="#FFF" />
           <Text style={styles.menuText}>Try Premium</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem}>
-          <Ionicons name="settings-outline" size={20} color="#FFF" />
-          <Text style={styles.menuText}>Settings</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={20} color="#FFF" />
@@ -453,12 +585,39 @@ const styles = StyleSheet.create({
   goBackButton: {
     backgroundColor: '#F44336',  // Red color for Go Back
   },
+  receiveButton : {
+    backgroundColor: '#20AB7D'
+  },
   buttonText: {
     fontSize: 16,
     color: '#FFF',
     fontWeight: 'bold',
   },
-  
+
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  waitmodalContainer: {
+    backgroundColor: '#25242B', // White background for modal content
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    width: '80%', // Adjust width of modal
+    elevation: 5, // Adds shadow for Android
+    shadowColor: '#000', // Shadow color for iOS
+    shadowOffset: { width: 0, height: 2 }, // Shadow offset for iOS
+    shadowOpacity: 0.25, // Shadow opacity for iOS
+    shadowRadius: 4, // Shadow blur radius for iOS
+  },
+  modalText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: '#20AB7D', // Dark text color for readability
+    textAlign: 'center', // Center-align text
+  },
 });
 
 export default Profile;
