@@ -6,8 +6,8 @@ import network
 import time
 
 # Connect to Wi-Fi
-ssid = "NacsFam"
-password = "!admiNIStration24680"
+ssid = ""
+password = ""
 
 sta_if = network.WLAN(network.STA_IF)
 sta_if.active(True)

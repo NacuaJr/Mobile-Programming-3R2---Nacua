@@ -129,6 +129,22 @@ const Profile = ({ navigation }) => {
         Alert.alert('Error', 'Incorrect password. Please try again.');
         return;
       }
+      const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('student_id')
+      .eq('id', userId)
+      .single();
+  
+    if (userError || !userData) {
+      Alert.alert('Error', 'Unable to fetch user data.');
+      return;
+    }
+  
+    if (userData.student_id === recipientId) {
+      setModalVisible(false);
+      Alert.alert('Alert', 'You cannot send money to your own account.');
+      return;
+    }
   
       // Fetch recipient balance
       const { data: recipientData, error: recipientError } = await supabase
@@ -183,6 +199,13 @@ const Profile = ({ navigation }) => {
     setIsModalVisible(true);
     setReceiveModalVisible(false);
     try {
+       // Step 0: Prevent receiving money from self
+      if (receiverStudentId === senderId) {
+        setIsModalVisible(false);
+        Alert.alert('Alert', 'You cannot receive money from your own account.');
+        return;
+      }
+
       // Step 1: Trigger RFID reading on the ESP32
       const response = await axios.get('http://192.168.1.18/trigger_rfid'); // Replace with your ESP32 IP
   

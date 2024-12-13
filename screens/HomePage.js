@@ -13,9 +13,9 @@ import {
   BackHandler
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { supabase } from '../utils/supabase'; // Assuming you have set up Supabase in utils
+import { supabase } from '../utils/supabase'; 
 import { useFavorites } from '../context/FavoritesContext';
-import { getCurrentUserId } from '../api/apicalls'; // Ensure the path is correct
+import { getCurrentUserId } from '../api/apicalls'; 
 import { useCart } from '../context/CartContext';
 import BalanceCard from '../Components/BalanceCard';
 
@@ -30,11 +30,11 @@ export default function HomePage({navigation}) {
   const { favorites, toggleFavorite } = useFavorites();
 
 
-  const [selectedItem, setSelectedItem] = useState(null); // For modal
+  const [selectedItem, setSelectedItem] = useState(null); 
   const [quantity, setQuantity] = useState(1);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  const { fetchCartItems } = useCart(); // Use the cart context
+  const { fetchCartItems } = useCart();
 
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
 
@@ -363,27 +363,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#25242B'
   },
   categoryCard: {
-    backgroundColor: '#20AB7D', // Dark background for the category card
-    padding: 10, // Space inside the card
+    backgroundColor: '#20AB7D', 
+    padding: 10, 
     alignItems: 'center',
-    borderRadius: 12, // Rounded corners
-    marginHorizontal: 8, // Space between cards
-    width: 80, // Fixed width for consistent layout
+    borderRadius: 12, 
+    marginHorizontal: 8,
+    width: 80, 
   },
   selectedCategoryCard: {
     borderWidth: 2,
     borderColor: '#fff',
   },
   categoryImage: {
-    width: 50, // Slightly smaller image to fit the card
+    width: 50, 
     height: 50,
-    borderRadius: 8, // Rounded square
-    marginBottom: 8, // Space between image and text
+    borderRadius: 8, 
+    marginBottom: 8, 
   },
   categoryText: {
-    fontSize: 12, // Slightly smaller text
+    fontSize: 12, 
     color: '#fff',
-    textAlign: 'center', // Center-align text
+    textAlign: 'center', 
   },
   foodContainer: {
     flex: 1,
